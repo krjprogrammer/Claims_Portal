@@ -107,6 +107,18 @@ class EDICLHP(models.Model):
     BHREFC = models.CharField(max_length=255, null=True, blank=True)
     BHTXSN = models.CharField(max_length=255, null=True, blank=True)
     BHCLTP = models.CharField(max_length=255, null=True, blank=True)
-
+    filename = models.CharField(max_length=100,null=True,blank=True)
     class Meta:
         db_table = "ediclhp"
+
+
+class Fund_Data(models.Model):
+    FUND = models.CharField(max_length=255, null=True, blank=True)
+    CLAIMS = models.CharField(max_length=255, null=True, blank=True)
+    PAID = models.CharField(max_length=255, null=True, blank=True)
+    fund_type = models.CharField(max_length=255, null=True, blank=True)
+    filename = models.CharField(max_length=255, null=True, blank=True)
+    file_date = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        db_table = "fund_data"

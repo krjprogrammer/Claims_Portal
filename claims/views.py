@@ -2,7 +2,6 @@ from django.shortcuts import render
 from django.shortcuts import render
 from django.db.models import Count, Q
 from django.db.models import Sum
-from tqdm import tqdm
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,15 +12,12 @@ import io
 from rest_framework import status
 import requests
 from datetime import date
-import pyodbc
 import json
 from django.conf import settings
 import pandas as pd
-from pyx12.x12context import X12ContextReader
-from pyx12.params import params
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Transaction,EDICLHP
+from .models import Transaction,EDICLHP,Fund_Data
 import re
 from datetime import datetime
 
@@ -212,3 +208,81 @@ class FileDataAPIView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+        
+
+class FundCountAPIView(APIView):
+    def get(self,request):
+
+        data = Fund_Data.objects.all()
+
+        file_name = request.GET.get('file_name','')
+        file_date = request.GET.get('file_date','')
+
+        if file_name:
+            data = data.filter(filename=file_name)
+
+        if file_date:
+            data = data.filter(file_date=file_date)
+
+        result = list(
+            data.values(
+                'fund_name',
+                'inst_count',
+                'prof_count'
+            )
+        )
+
+        return Response(result)
+    
+
+class FundDashboardAPI(APIView):
+
+    def post(self, request):
+
+        file_date = request.data.get("file_date",'')
+        filename = request.data.get("file_name",'')
+
+        if not file_date and not filename:
+            return Response(
+                {
+                    "error": "Provide file_date or filename"
+                },
+                status=400
+            )
+
+        queryset = Fund_Data.objects.all()
+
+        if file_date and filename:
+
+            queryset = queryset.filter(
+                file_date=file_date,
+                filename=filename
+            )
+
+        elif file_date:
+
+            queryset = queryset.filter(
+                file_date=file_date
+            )
+
+        elif filename:
+
+            queryset = queryset.filter(
+                filename=filename
+            )
+
+        data = list(
+            queryset.values(
+                "FUND",
+                "CLAIMS",
+                "PAID",
+            )
+        )
+
+        return Response(
+            {
+                "success": True,
+                "count": len(data),
+                "data": data
+            }
+        )
