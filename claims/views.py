@@ -6,6 +6,7 @@ from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
+from django.db.models.functions import Cast
 import os
 import sqlite3
 import io
@@ -211,40 +212,56 @@ class FileDataAPIView(APIView):
         
 
 class FundCountAPIView(APIView):
+
     def get(self, request):
+
         data = Fund_Data.objects.all()
-        file_name = request.GET.get('file_name', '')
-        file_date = request.GET.get('file_date', '')
+
+        file_name = request.GET.get("file_name", "")
+        file_date = request.GET.get("file_date", "")
+
         if file_name:
             data = data.filter(filename=file_name)
+
         if file_date:
             data = data.filter(file_date=file_date)
+
         result = (
             data
-            .values('FUND')
+            .values("FUND")
             .annotate(
                 prof_count=Sum(
                     Case(
-                        When(fund_type='P', then='CLAIMS'),
+                        When(
+                            fund_type="P",
+                            then=Cast("CLAIMS", IntegerField())
+                        ),
                         default=0,
                         output_field=IntegerField()
                     )
                 ),
                 inst_count=Sum(
                     Case(
-                        When(fund_type='I', then='CLAIMS'),
+                        When(
+                            fund_type="I",
+                            then=Cast("CLAIMS", IntegerField())
+                        ),
                         default=0,
                         output_field=IntegerField()
                     )
                 )
             )
-            .order_by('FUND')
+            .order_by("FUND")
         )
-        return Response(list(result))
+
+        return Response({
+            "success": True,
+            "count": len(result),
+            "data": list(result)
+        })
     
 
 class FundDashboardAPI(APIView):
-
     def post(self, request):
 
         file_date = request.data.get("file_date",'')

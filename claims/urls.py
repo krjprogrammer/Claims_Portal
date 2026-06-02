@@ -6,7 +6,7 @@ urlpatterns = [
     path('get_processed_files',ProcessedFilesAPIView.as_view()),
     path('get_file_data',FileDataAPIView.as_view()),
     path('get_fund_count',FundCountAPIView.as_view()),
-    path('get_fund_data',FundCountAPIView.as_view())
+    path('get_fund_data',FundDashboardAPI.as_view())
 ]
 
 
