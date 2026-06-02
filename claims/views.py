@@ -1,7 +1,7 @@
 from django.shortcuts import render
 from django.shortcuts import render
 from django.db.models import Count, Q
-from django.db.models import Sum
+from django.db.models import Sum,Case, When, IntegerField
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -211,28 +211,36 @@ class FileDataAPIView(APIView):
         
 
 class FundCountAPIView(APIView):
-    def get(self,request):
-
+    def get(self, request):
         data = Fund_Data.objects.all()
-
-        file_name = request.GET.get('file_name','')
-        file_date = request.GET.get('file_date','')
-
+        file_name = request.GET.get('file_name', '')
+        file_date = request.GET.get('file_date', '')
         if file_name:
             data = data.filter(filename=file_name)
-
         if file_date:
             data = data.filter(file_date=file_date)
-
-        result = list(
-            data.values(
-                'fund_name',
-                'inst_count',
-                'prof_count'
+        result = (
+            data
+            .values('FUND')
+            .annotate(
+                prof_count=Sum(
+                    Case(
+                        When(fund_type='P', then='CLAIMS'),
+                        default=0,
+                        output_field=IntegerField()
+                    )
+                ),
+                inst_count=Sum(
+                    Case(
+                        When(fund_type='I', then='CLAIMS'),
+                        default=0,
+                        output_field=IntegerField()
+                    )
+                )
             )
+            .order_by('FUND')
         )
-
-        return Response(result)
+        return Response(list(result))
     
 
 class FundDashboardAPI(APIView):
