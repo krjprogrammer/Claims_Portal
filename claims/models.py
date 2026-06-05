@@ -174,5 +174,11 @@ class Total_Charges(models.Model):
         blank=True
     )
 
+    filetype = models.CharField(
+        max_length=10,
+        null=True,
+        blank=True
+    )
+
     class Meta:
         db_table = "total_charges"
