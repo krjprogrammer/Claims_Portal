@@ -115,10 +115,64 @@ class EDICLHP(models.Model):
 class Fund_Data(models.Model):
     FUND = models.CharField(max_length=255, null=True, blank=True)
     CLAIMS = models.CharField(max_length=255, null=True, blank=True)
-    PAID = models.CharField(max_length=255, null=True, blank=True)
+    claim_amount = models.CharField(max_length=255, null=True, blank=True)
+    allowed_amount = models.CharField(max_length=255, null=True, blank=True)
+    paid_amount = models.CharField(max_length=255, null=True, blank=True)
+    group_name = models.CharField(max_length=255, null=True, blank=True)
+    group_count = models.CharField(max_length=255, null=True, blank=True)
     fund_type = models.CharField(max_length=255, null=True, blank=True)
     filename = models.CharField(max_length=255, null=True, blank=True)
     file_date = models.CharField(max_length=255, null=True, blank=True)
-
     class Meta:
         db_table = "fund_data"
+
+
+class Fund_Status(models.Model):
+    Fund = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+    Groups = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+    Status = models.CharField(
+        max_length=1,
+        null=True,
+        blank=True
+    )
+    class Meta:
+        db_table = "fund_status"
+
+
+
+class Total_Charges(models.Model):
+
+    total_claim_amount = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
+    total_allowed_amount = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
+    total_paid_amount = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
+    file_date = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
+
+    class Meta:
+        db_table = "total_charges"
