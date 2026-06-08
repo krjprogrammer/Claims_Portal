@@ -736,8 +736,6 @@ class FileCountTypeAPIView(APIView):
                 "%m%d%Y"
             ).strftime("%Y-%m-%d")
             im_df = pd.DataFrame(rows)
-            im_df_path = "excels/im_df_web_app_short.xlsx"
-            im_df.to_excel(im_df_path, index=False)
             if filetype == 'INS':
                 df = im_df
                 rows_to_drop = []
@@ -773,7 +771,6 @@ class FileCountTypeAPIView(APIView):
 
                 df.drop(rows_to_drop, inplace=True)
                 df.reset_index(drop=True, inplace=True)
-                df.to_excel("new_im_df.xlsx")
                 im_df = df
             biccbt = str(im_df["BICCBT"].iloc[0])
             date_str = str(datetime.strptime(biccbt[:6], "%y%m%d").strftime("%m/%d/%Y"))
@@ -782,7 +779,6 @@ class FileCountTypeAPIView(APIView):
             df['BHRECD'] = date_str
             df['BHCNTN'] = date_str + (df.index + 1).astype(str)
             df['BHSNDI'] = 'ANTHEM-ABC'
-            df.to_excel('james_bhrt.xlsx')
             df_new_rows = []
             i = 0
             df_new_rows = []
