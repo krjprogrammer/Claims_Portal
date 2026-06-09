@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 from tqdm import tqdm
 import psycopg2
+from psycopg2.extras import execute_batch,execute_values
 
 def extract_837_data(file_path,edi_text=None,file_date=None,filename=None):
     if not edi_text:
@@ -311,8 +312,24 @@ def parse_df(df, mappings):
     return pd.DataFrame(parsed_rows)
 
 
-def process_df(df,filetype,im_df,filename=None):
+def process_df(df,filetype,im_df,file_date,filename=None,):
     print('processing started')
+    try:
+        conn = conn = psycopg2.connect(
+            host="localhost",
+            port="5432",
+            database="claims_db",
+            user="onesmarter",
+            password="kriskross$1"
+        )
+        print("Connected to Postgress database.")
+        cursor = conn.cursor()
+    except Exception as e:
+        print("DB2 connection error:", e)
+        exit()
+
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Main Process Started"))
+    conn.commit()
     df['BHPAYC'] = df['BHPPOI'].apply(
         lambda x: '1' if str(x).strip() in ['IN-Y', 'IN-N','ON-Y']
         else '2' if str(x).strip() in ['ON-N']
@@ -500,23 +517,13 @@ def process_df(df,filetype,im_df,filename=None):
         df['BHDFNM'] = df['BHMFNM']
         df['BHDLNM'] = df['BHMLNM']
         df['BHDBDT'] = df['BHMBDT']
-    try:
-        conn = conn = psycopg2.connect(
-            host="localhost",
-            port="5432",
-            database="claims_db",
-            user="onesmarter",
-            password="kriskross$1"
-        )
-        print("Connected to Postgress database.")
-        cursor = conn.cursor()
-    except Exception as e:
-        print("DB2 connection error:", e)
-        exit()
+    
     unique_member_ids = df['BHORGN'].dropna().unique()
     denied_claims = []
     manual_lookup_claims = []
     jh = 0
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Member Dependent Verification Started"))
+    conn.commit()
     for member_id in tqdm(unique_member_ids, desc="Processing Member IDs"):
         jh += 1
         df_rows = df[df['BHORGN'] == member_id]
@@ -605,7 +612,7 @@ def process_df(df,filetype,im_df,filename=None):
                             df.at[df_index, 'TESEQ'] = teseq
                             df.at[df_index, 'TESSN'] = tessn
                             df.at[df_index, 'TEDSSN'] = tedssn
-                            # df.at[df_index,'BHMVRF'] = 'Y'
+                            df.at[df_index,'BHMVRF'] = 'Y'
 
                 unmatched_rows = df_rows[
                     ~df_rows.index.isin(matched_indexes)
@@ -622,7 +629,8 @@ def process_df(df,filetype,im_df,filename=None):
     df['BHPSEQ'] = df['TESEQ']
     df['BHMEMN'] = df['TESSN']
     df.drop(columns=['TECLNT','TESEQ','TESSN'],inplace=True)
-    df.to_excel('after_samsung_new.xlsx')
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Member Dependent Verification Ended"))
+    conn.commit()
     ins_mapping = {
     '1':'01',
     '3':'19',
@@ -674,10 +682,11 @@ def process_df(df,filetype,im_df,filename=None):
     df["BHCFID"] = df["BHCFID"].fillna("CI")
     df["BHMBDT"] = df["BHMBDT"].apply(convert_date_col)
     df["BHDBDT"] = df["BHDBDT"].apply(convert_date_col)
-    df.to_excel(r"before_bh.xlsx")
     deny_df = pd.concat(denied_claims, ignore_index=True) if denied_claims else pd.DataFrame()
     manual_lookup_df = pd.concat(manual_lookup_claims, ignore_index=True) if manual_lookup_claims else pd.DataFrame()
     provp_new = []
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Provider Verification Started"))
+    conn.commit()
     for i, row in tqdm(df.iterrows(), total=len(df), desc="Processing BH data"):
         name = str(row["BHPNAM"]).replace(" ", "").strip()
         addr1 = str(row["BHPAD1"]).replace(" ", "").strip()
@@ -753,7 +762,8 @@ def process_df(df,filetype,im_df,filename=None):
     except:
         pass
 
-
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Provider Verification Ended"))
+    conn.commit()
     df["BHBFRD"] = df["BHBFRD"].str.split("-").str[0]
     df["BHBTOD"] = df["BHBTOD"].str.split("-").str[1]
     df["BHPLSR"] = df["BHPLSR"].str.split(":").str[0]
@@ -762,7 +772,7 @@ def process_df(df,filetype,im_df,filename=None):
     dict(x) if not isinstance(x, dict) else x
     for x in provp_new
     ])
-    prov_to_insert_df.to_excel('provider_to_insert_may10_inst.xlsx')
+    
     df[["BHCCBT","BHCNTN"]] = df[["BHCCBT","BHCNTN"]].apply(lambda x: x.str.replace("/", "", regex=False))
     def convert_date_format(val):
         val = str(val).strip()
@@ -806,6 +816,105 @@ def process_df(df,filetype,im_df,filename=None):
         return val
 
     df["BHCCBT"] = df["BHCCBT"].apply(format_bhccbt)
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Fund Filtration Started"))
+    conn.commit()
+    def create_fund_data_df(df, file_date, filename):
+
+        rows = []
+
+        for fund, fund_df in df.groupby("BHCLNT"):
+
+            fund_count = len(fund_df)
+
+            claim_amount = pd.to_numeric(
+                fund_df["BHCHGA"],
+                errors="coerce"
+            ).fillna(0).sum()
+
+            allowed_amount = pd.to_numeric(
+                fund_df["BHCAMT"],
+                errors="coerce"
+            ).fillna(0).sum()
+
+            group_counts = (
+                fund_df["BHGRNM"]
+                .fillna("UNKNOWN")
+                .value_counts()
+                .to_dict()
+            )
+
+            for group_name, group_count in group_counts.items():
+
+                rows.append({
+                    "FUND": fund,
+                    "CLAIMS": fund_count,
+                    "claim_amount": round(claim_amount, 2),
+                    "allowed_amount": round(allowed_amount, 2),
+                    "paid_amount": "",
+                    "group_name": group_name,
+                    "group_count": group_count,
+                    "fund_type": "I",
+                    "filename": filename,
+                    "file_date": file_date
+                })
+
+        return pd.DataFrame(rows)
+    f_df = create_fund_data_df(df,file_date,filename)
+    records = [
+    (
+        row["FUND"],
+        row["CLAIMS"],
+        row["claim_amount"],
+        row["allowed_amount"],
+        row["paid_amount"],
+        row["group_name"],
+        row["group_count"],
+        row["fund_type"],
+        row["filename"],
+        row["file_date"]
+    )
+    for _, row in f_df.iterrows()
+    ]
+    cursor.execute(
+    """
+    SELECT 1
+    FROM fund_data
+    WHERE filename = %s
+      AND file_date = %s
+    LIMIT 1
+    """,
+    (filename, file_date)
+    )
+
+    exists = cursor.fetchone()
+    if not exists:
+        query = """
+        INSERT INTO fund_data (
+            "FUND",
+            "CLAIMS",
+            "claim_amount",
+            "allowed_amount",
+            "paid_amount",
+            "group_name",
+            "group_count",
+            "fund_type",
+            "filename",
+            "file_date"
+        )
+        VALUES %s
+        """
+
+        cursor = conn.cursor()
+        execute_values(
+            cursor,
+            query,
+            records
+        )
+        conn.commit()
+
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Fund Filtration Completed"))
+    conn.commit()
+
     def fix_bhdbdt(val):
         if pd.isna(val):
             return val
@@ -951,4 +1060,77 @@ def process_df(df,filetype,im_df,filename=None):
                     df.at[idx, col] = row[member_col]
     if 'BHTAXO2' in df.columns:
         df.drop(columns=['BHTAXO2'],inplace=True)
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "File Processing Completed"))
+    conn.commit()
     df['filename'] = filename
+    ediclhp_columns = [
+    "BHPNAM","BHNPI","BHTXID","BHPAD1","BHPCTY","BHPST","BHPZIP","BHCFID",
+    "BHGRPN","BHGRNM","BHMFNM","BHMLNM","BHMINT","BHMAD1","BHMCTY","BHMST",
+    "BHMZIP","BHMBDT","BHMSEX","BHMID","BHORGN","BHCHGA","BHPLSR","BHFREQ",
+    "BHACPA","BHDASG","BHRELI","BHDMRE","BHRECD","BHBFRD","BHBTOD","BHLDWK",
+    "BHDOCN","BHADJR","BHNOTC","BHNOTE","BHDIO1","BHCAMT","BHPPOI","BHREV",
+    "BHSNAM","BHSAD1","BHSCTY","BHSST","BHSZIP","BHDFNM","BHDLNM","BHDINT",
+    "BHDAD1","BHDCTY","BHDST","BHDZIP","BHDBDT","BHDSEX","BHDIO2","BHPHNM",
+    "BHPHID","BHTAXO","BHDIO3","BHDIO4","BHDIO5","BHOICO","BHOIDE","BHNPA1",
+    "BHOPPA","BHMEDA","BHCALA","BHOICP","BHNPR2","BHNPA2","BHNOTE2","BHCCBT",
+    "BHCNTN","BHSNDI","BHPAYC","BHPARN","BHRCVI","BHAMDG","BHSNPI","BHCNCD",
+    "BHOIAL","mem_dob","dep_dob","BHSQCL","TEDSSN","BHCLNT","BHPSEQ","BHMEMN",
+    "BHRLTN","BHDREL","BHDEPN","BHDCNT","BHREFC","BHTXSN","BHCLTP","BHMVRF",
+    "BHPRVRF","BHPBSEQ","filename"
+    ]
+
+    df = df[[col for col in ediclhp_columns if col in df.columns]]
+    cursor.execute(
+    'SELECT 1 FROM ediclhp WHERE filename = %s LIMIT 1',
+    (filename,)
+    )
+
+    exists = cursor.fetchone()
+
+    if not exists:
+        cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "File Data Insertion to Table Started"))
+        conn.commit()
+        columns = list(df.columns)
+
+        quoted_columns = [f'"{col}"' for col in columns]
+
+        insert_query = f"""
+        INSERT INTO ediclhp
+        ({','.join(quoted_columns)})
+        VALUES ({','.join(['%s'] * len(columns))})
+        """
+
+        batch_size = 1000
+
+        for start in tqdm(
+            range(0, len(df), batch_size),
+            desc="Loading EDICLHP"
+        ):
+
+            batch_df = df.iloc[start:start + batch_size]
+
+            records = [
+                tuple(
+                    None if str(v).strip().lower() == 'nan' else v
+                    for v in row
+                )
+                for row in batch_df.values
+            ]
+
+            execute_batch(
+                cursor,
+                insert_query,
+                records
+            )
+
+            conn.commit()
+        cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "File Data Insertion to Table Completed"))
+        conn.commit()
+
+    else:
+
+        print(
+            f"Data already exists for filename: {filename}"
+        )
+
+    cursor.close()

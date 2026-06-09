@@ -107,6 +107,9 @@ class EDICLHP(models.Model):
     BHREFC = models.CharField(max_length=255, null=True, blank=True)
     BHTXSN = models.CharField(max_length=255, null=True, blank=True)
     BHCLTP = models.CharField(max_length=255, null=True, blank=True)
+    BHMVRF = models.CharField(max_length=10, null=True, blank=True)
+    BHPRVRF = models.CharField(max_length=10, null=True, blank=True)
+    BHPBSEQ = models.CharField(max_length=10, null=True, blank=True)
     filename = models.CharField(max_length=100,null=True,blank=True)
     class Meta:
         db_table = "ediclhp"
@@ -353,3 +356,16 @@ class PROVP(models.Model):
 
     class Meta:
         db_table = "provp"
+
+
+class ProcessingLog(models.Model):
+    filename = models.CharField(max_length=500, null=True, blank=True)
+    filetype = models.CharField(max_length=10, null=True, blank=True)
+    file_date = models.CharField(max_length=20, null=True, blank=True)
+    status = models.CharField(max_length=100, null=True, blank=True)
+    created_time = models.TimeField(
+        auto_now_add=True
+    )
+
+    class Meta:
+        db_table = "processing_log"
