@@ -554,9 +554,9 @@ def process_df(df,filetype,im_df,filename=None):
                 matched_indexes = set()
                 date_series = df_rows.apply(
                     lambda row: (
-                        row["dep_dob"]
+                        str(int(row["dep_dob"]))
                         if pd.notna(row["dep_dob"]) and str(row["dep_dob"]).strip() != ""
-                        else row["mem_dob"]
+                        else str(int(row["mem_dob"]))
                     ),
                     axis=1
                 )
