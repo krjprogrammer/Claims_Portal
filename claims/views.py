@@ -708,6 +708,8 @@ class FileCountTypeAPIView(APIView):
         response_data = []
         temp_dir = "/home/ubuntu/claim_temp_files"
         process_flag = False
+        to_cel_filedate = ''
+        to_cel_filename = ''
         os.makedirs(
             temp_dir,
             exist_ok=True
@@ -852,6 +854,8 @@ class FileCountTypeAPIView(APIView):
                 index=False
                 )
                 process_flag = True
+                to_cel_filedate = formatted_date
+                to_cel_filename = filename
             unique_claims = (
                 df["BHDOCN"]
                 .astype(str)
@@ -894,7 +898,7 @@ class FileCountTypeAPIView(APIView):
         #                 f"Failed to delete {file_path}: {e}"
         #             )
         if process_flag:
-            process_claims.delay(excel_file,filetype,im_file)    
+            process_claims.delay(excel_file,filetype,im_file,to_cel_filedate,to_cel_filename)    
         return Response(
         {
             "success": True,

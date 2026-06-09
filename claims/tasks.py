@@ -3,9 +3,9 @@ from .utils import process_df
 import pandas as pd
 
 @shared_task()
-def process_claims(excel_file,filetype,im_path):
+def process_claims(excel_file,filetype,im_path,file_date,filename):
     df = pd.read_excel(
         excel_file
     )
     im_df = pd.read_excel(im_path)
-    process_df(df,filetype,im_df)
+    process_df(df,filetype,im_df,file_date,filename)
