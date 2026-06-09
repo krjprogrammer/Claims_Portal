@@ -748,7 +748,7 @@ class FileCountTypeAPIView(APIView):
                 f"im.xlsx"
             )
             im_df.to_excel(
-                excel_file,
+                im_file,
                 index=False
             )
             if filetype == 'I':
