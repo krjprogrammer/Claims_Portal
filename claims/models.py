@@ -221,6 +221,21 @@ class EDIEMP(models.Model):
         null=True,
         blank=True
     )
+    TEALTI = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    ) 
+    TEHCID = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    ) 
+    TEHMID = models.CharField(
+        max_length=255,
+        null=True,
+        blank=True
+    )
 
     class Meta:
         db_table = "ediemp"
