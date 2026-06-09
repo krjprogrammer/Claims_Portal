@@ -508,13 +508,12 @@ def process_df(df,filetype,im_df,filename=None):
             user="onesmarter",
             password="kriskross$1"
         )
-        print("Connected to DB2 database.")
+        print("Connected to Postgress database.")
         cursor = conn.cursor()
     except Exception as e:
         print("DB2 connection error:", e)
         exit()
     unique_member_ids = df['BHORGN'].dropna().unique()
-    df.to_excel('before_ssn.xlsx')
     denied_claims = []
     manual_lookup_claims = []
     jh = 0
@@ -523,7 +522,7 @@ def process_df(df,filetype,im_df,filename=None):
         df_rows = df[df['BHORGN'] == member_id]
         mem_dob = df_rows['mem_dob']
         dep_dob = df_rows['dep_dob']
-        try:
+        if True:
             results = None
             search_columns = ['TEALTI', 'TEHCID', 'TEHMID']
             query_template = """
@@ -612,8 +611,7 @@ def process_df(df,filetype,im_df,filename=None):
             else:
                 print(f"No results found for member ID {member_id}")
             
-        except Exception as e:
-            print(f"Error processing member ID {member_id}: {e}")
+
 
     df['BHCLNT'] = df['TECLNT']
     df['BHPSEQ'] = df['TESEQ']
