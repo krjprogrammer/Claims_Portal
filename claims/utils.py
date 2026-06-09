@@ -328,7 +328,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
         print("DB2 connection error:", e)
         exit()
 
-    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Main Process Started"))
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Main Process Started"))
     conn.commit()
     df['BHPAYC'] = df['BHPPOI'].apply(
         lambda x: '1' if str(x).strip() in ['IN-Y', 'IN-N','ON-Y']
@@ -522,7 +522,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     denied_claims = []
     manual_lookup_claims = []
     jh = 0
-    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Member Dependent Verification Started"))
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Member Dependent Verification Started"))
     conn.commit()
     for member_id in tqdm(unique_member_ids, desc="Processing Member IDs"):
         jh += 1
@@ -629,7 +629,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     df['BHPSEQ'] = df['TESEQ']
     df['BHMEMN'] = df['TESSN']
     df.drop(columns=['TECLNT','TESEQ','TESSN'],inplace=True)
-    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Member Dependent Verification Ended"))
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Member Dependent Verification Ended"))
     conn.commit()
     ins_mapping = {
     '1':'01',
@@ -685,7 +685,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     deny_df = pd.concat(denied_claims, ignore_index=True) if denied_claims else pd.DataFrame()
     manual_lookup_df = pd.concat(manual_lookup_claims, ignore_index=True) if manual_lookup_claims else pd.DataFrame()
     provp_new = []
-    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Provider Verification Started"))
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Provider Verification Started"))
     conn.commit()
     for i, row in tqdm(df.iterrows(), total=len(df), desc="Processing BH data"):
         name = str(row["BHPNAM"]).replace(" ", "").strip()
@@ -762,7 +762,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     except:
         pass
 
-    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Provider Verification Ended"))
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Provider Verification Ended"))
     conn.commit()
     df["BHBFRD"] = df["BHBFRD"].str.split("-").str[0]
     df["BHBTOD"] = df["BHBTOD"].str.split("-").str[1]
@@ -816,7 +816,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
         return val
 
     df["BHCCBT"] = df["BHCCBT"].apply(format_bhccbt)
-    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Fund Filtration Started"))
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Fund Filtration Started"))
     conn.commit()
     def create_fund_data_df(df, file_date, filename):
 
@@ -912,7 +912,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
         )
         conn.commit()
 
-    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "Fund Filtration Completed"))
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Fund Filtration Completed"))
     conn.commit()
 
     def fix_bhdbdt(val):
@@ -1060,7 +1060,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
                     df.at[idx, col] = row[member_col]
     if 'BHTAXO2' in df.columns:
         df.drop(columns=['BHTAXO2'],inplace=True)
-    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "File Processing Completed"))
+    cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "File Processing Completed"))
     conn.commit()
     df['filename'] = filename
     ediclhp_columns = [
@@ -1088,7 +1088,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     exists = cursor.fetchone()
 
     if not exists:
-        cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "File Data Insertion to Table Started"))
+        cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "File Data Insertion to Table Started"))
         conn.commit()
         columns = list(df.columns)
 
@@ -1124,7 +1124,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
             )
 
             conn.commit()
-        cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status) VALUES (%s, %s, %s, %s)", (filename, filetype, file_date, "File Data Insertion to Table Completed"))
+        cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "File Data Insertion to Table Completed"))
         conn.commit()
 
     else:
