@@ -700,7 +700,7 @@ def process_df(df,filetype,im_df,filename=None):
 
         sql = """
         SELECT
-            MAX("PRSEQ"),
+            MAX("PRSEQ#"),
             MAX("PRBSEQ")
         FROM provp
         WHERE REPLACE(REPLACE(UPPER("PRPNAM"), ' ', ''), '-', '') LIKE %s
