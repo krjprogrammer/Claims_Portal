@@ -893,8 +893,8 @@ class FileCountTypeAPIView(APIView):
         #             print(
         #                 f"Failed to delete {file_path}: {e}"
         #             )
-        # if process_flag:
-        #     process_claims.delay(excel_file,filetype,im_file)    
+        if process_flag:
+            process_claims.delay(excel_file,filetype,im_file)    
         return Response(
         {
             "success": True,
