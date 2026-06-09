@@ -594,7 +594,6 @@ def process_df(df,filetype,im_df,filename=None):
                     if name_matched_rows.empty:
                         continue
                     
-                    print(f"this is {date_series}____{tedob_str}")
                     matched_rows = name_matched_rows[
                         date_series.loc[name_matched_rows.index] == tedob_str
                     ].copy()
@@ -652,7 +651,7 @@ def process_df(df,filetype,im_df,filename=None):
                 WHERE "DPSSN" = %s
                 AND "DPSEQ" = %s
                 """,
-                (dpssn, dpseq)
+                (str(dpssn), str(dpseq))
             )
             result = cursor.fetchone()
 
