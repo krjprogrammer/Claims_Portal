@@ -743,14 +743,15 @@ class FileCountTypeAPIView(APIView):
                 "%m%d%Y"
             ).strftime("%Y-%m-%d")
             im_df = pd.DataFrame(rows)
-            im_file = os.path.join(
+            if filetype == 'P':
+                im_file = os.path.join(
                 temp_dir,
                 f"im.xlsx"
-            )
-            im_df.to_excel(
-                im_file,
-                index=False
-            )
+                )
+                im_df.to_excel(
+                    im_file,
+                    index=False
+                )
             if filetype == 'I':
                 df = im_df
                 rows_to_drop = []
@@ -841,11 +842,11 @@ class FileCountTypeAPIView(APIView):
 
             df = pd.DataFrame(df_new_rows).reset_index(drop=True)
             
-            excel_file = os.path.join(
+            if filetype == 'P':
+                excel_file = os.path.join(
                 temp_dir,
                 f"claims.xlsx"
-            )
-            if filetype == 'P':
+                )
                 df.to_excel(
                 excel_file,
                 index=False
@@ -892,8 +893,8 @@ class FileCountTypeAPIView(APIView):
         #             print(
         #                 f"Failed to delete {file_path}: {e}"
         #             )
-        if process_flag:
-            process_claims.delay(excel_file,filetype,im_file)    
+        # if process_flag:
+        #     process_claims.delay(excel_file,filetype,im_file)    
         return Response(
         {
             "success": True,

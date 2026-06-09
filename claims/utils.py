@@ -312,6 +312,7 @@ def parse_df(df, mappings):
 
 
 def process_df(df,filetype,im_df,filename=None):
+    print('processing started')
     df['BHPAYC'] = df['BHPPOI'].apply(
         lambda x: '1' if str(x).strip() in ['IN-Y', 'IN-N','ON-Y']
         else '2' if str(x).strip() in ['ON-N']
