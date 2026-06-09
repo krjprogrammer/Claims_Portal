@@ -602,11 +602,12 @@ def process_df(df,filetype,im_df,filename=None):
                     if not matched_rows.empty:
                         matched_indexes.update(matched_rows.index)
                         for df_index in matched_rows.index:
-                            # print(f"{member_id} {df_index} {teclnt} {teseq} {tessn}")
+                            print(f"{member_id} {df_index} {teclnt} {teseq} {tessn}")
                             df.at[df_index, 'TECLNT'] = teclnt
                             df.at[df_index, 'TESEQ'] = teseq
                             df.at[df_index, 'TESSN'] = tessn
                             df.at[df_index, 'TEDSSN'] = tedssn
+                            # df.at[df_index,'BHMVRF'] = 'Y'
 
                 unmatched_rows = df_rows[
                     ~df_rows.index.isin(matched_indexes)
@@ -730,6 +731,7 @@ def process_df(df,filetype,im_df,filename=None):
             provp_new.append(row)
         if result:
             df.at[i, "BHPSEQ"] = result[0]
+            df.at[i,"BHPRVRF"] = 'Y'
             if result[1]:
                 df.at[i, "BHPBSEQ"] = result[1]
             else:
