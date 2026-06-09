@@ -562,7 +562,6 @@ def process_df(df,filetype,im_df,filename=None):
                 )
                 for result_row in results:
                     teclnt, teseq, tessn, tedssn, tename, tedob = result_row
-                    print(f"{member_id} {tename} {teclnt} {teseq} {tessn} {tedob}")
                     if not tename or '*' not in tename:
                         continue
 
@@ -592,7 +591,7 @@ def process_df(df,filetype,im_df,filename=None):
                             last_name.strip().upper().replace(" ", "")
                         )
                     ]
-
+                    print(f"this is {name_matched_rows}")
                     if name_matched_rows.empty:
                         continue
 
