@@ -526,9 +526,15 @@ def process_df(df,filetype,im_df,filename=None):
             results = None
             search_columns = ['TEALTI', 'TEHCID', 'TEHMID']
             query_template = """
-                SELECT TECLNT, TESEQ, TESSN, TEDSSN, TENAME, TEDOB
+                SELECT
+                    "TECLNT",
+                    "TESEQ",
+                    "TESSN",
+                    "TEDSSN",
+                    "TENAME",
+                    "TEDOB"
                 FROM ediemp
-                WHERE {column} = %s
+                WHERE "{column}" = %s
             """
 
             cursor = conn.cursor()
