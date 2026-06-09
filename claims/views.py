@@ -879,19 +879,19 @@ class FileCountTypeAPIView(APIView):
                 claim_count=row["claim_count"],
                 created_date=row["file_date"]
             )
-        for filename in os.listdir(folder_path):
-            file_path = os.path.join(
-                folder_path,
-                filename
-            )
-            if os.path.isfile(file_path):
-                try:
-                    os.remove(file_path)
-                    print(f"Deleted: {file_path}")
-                except Exception as e:
-                    print(
-                        f"Failed to delete {file_path}: {e}"
-                    )
+        # for filename in os.listdir(folder_path):
+        #     file_path = os.path.join(
+        #         folder_path,
+        #         filename
+        #     )
+        #     if os.path.isfile(file_path):
+        #         try:
+        #             os.remove(file_path)
+        #             print(f"Deleted: {file_path}")
+        #         except Exception as e:
+        #             print(
+        #                 f"Failed to delete {file_path}: {e}"
+        #             )
         process_claims.delay(excel_file,filetype,im_file)    
         return Response(
         {
