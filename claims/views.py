@@ -707,7 +707,7 @@ class FileCountTypeAPIView(APIView):
     def get(self,request):
         response_data = []
         temp_dir = "/home/ubuntu/claim_temp_files"
-        prof_df = ''
+        process_flag = False
         os.makedirs(
             temp_dir,
             exist_ok=True
@@ -845,12 +845,12 @@ class FileCountTypeAPIView(APIView):
                 temp_dir,
                 f"claims.xlsx"
             )
-            df.to_excel(
+            if filetype == 'P':
+                df.to_excel(
                 excel_file,
                 index=False
-            )
-            if filetype == 'P':
-                prof_df = df
+                )
+                process_flag = True
             unique_claims = (
                 df["BHDOCN"]
                 .astype(str)
@@ -892,7 +892,8 @@ class FileCountTypeAPIView(APIView):
         #             print(
         #                 f"Failed to delete {file_path}: {e}"
         #             )
-        process_claims.delay(excel_file,filetype,im_file)    
+        if process_flag:
+            process_claims.delay(excel_file,filetype,im_file)    
         return Response(
         {
             "success": True,
