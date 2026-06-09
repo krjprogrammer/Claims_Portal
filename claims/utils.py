@@ -562,6 +562,7 @@ def process_df(df,filetype,im_df,filename=None):
                 )
                 for result_row in results:
                     teclnt, teseq, tessn, tedssn, tename, tedob = result_row
+                    print(f"{member_id} {tename} {teclnt} {teseq} {tessn} {tedob}")
                     if not tename or '*' not in tename:
                         continue
 
@@ -602,7 +603,6 @@ def process_df(df,filetype,im_df,filename=None):
                     if not matched_rows.empty:
                         matched_indexes.update(matched_rows.index)
                         for df_index in matched_rows.index:
-                            print(f"{member_id} {df_index} {teclnt} {teseq} {tessn}")
                             df.at[df_index, 'TECLNT'] = teclnt
                             df.at[df_index, 'TESEQ'] = teseq
                             df.at[df_index, 'TESSN'] = tessn
