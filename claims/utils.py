@@ -1087,6 +1087,9 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     "total_allowed_amount": pd.to_numeric(df["BHCAMT"], errors="coerce").fillna(0).sum(),
     "filetype": df["BHCLTP"].iloc[0]
     }])
+    summary_df['total_paid_amount'] = 0
+    summary_df['file_date'] = file_date
+    summary_df['filetype'] = filetype
 
     records = [
         (
