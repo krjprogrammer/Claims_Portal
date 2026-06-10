@@ -3,6 +3,7 @@ import pandas as pd
 import re
 from datetime import datetime
 from tqdm import tqdm
+import time
 import psycopg2
 from psycopg2.extras import execute_batch,execute_values
 
@@ -629,6 +630,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     df['BHPSEQ'] = df['TESEQ']
     df['BHMEMN'] = df['TESSN']
     df.drop(columns=['TECLNT','TESEQ','TESSN'],inplace=True)
+    time.sleep(60)
     cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Member Dependent Verification Ended"))
     conn.commit()
     ins_mapping = {
@@ -1080,6 +1082,45 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     ]
 
     df = df[[col for col in ediclhp_columns if col in df.columns]]
+    summary_df = pd.DataFrame([{
+    "total_claim_amount": pd.to_numeric(df["BHCHGA"], errors="coerce").fillna(0).sum(),
+    "total_allowed_amount": pd.to_numeric(df["BHCAMT"], errors="coerce").fillna(0).sum(),
+    "filetype": df["BHCLTP"].iloc[0]
+    }])
+
+    records = [
+        (
+            row["total_claim_amount"],
+            row["total_allowed_amount"],
+            row["total_paid_amount"],
+            row["file_date"],
+            row["filetype"]
+        )
+        for _, row in summary_df.iterrows()
+    ]
+
+    query = """
+    INSERT INTO total_charges (
+        total_claim_amount,
+        total_allowed_amount,
+        total_paid_amount,
+        file_date,
+        filetype
+    )
+    VALUES %s
+    """
+
+    cursor = conn.cursor()
+
+    execute_values(
+        cursor,
+        query,
+        records
+    )
+
+    conn.commit()
+
+
     cursor.execute(
     'SELECT 1 FROM ediclhp WHERE filename = %s LIMIT 1',
     (filename,)
@@ -1132,5 +1173,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
         print(
             f"Data already exists for filename: {filename}"
         )
+
+    
 
     cursor.close()

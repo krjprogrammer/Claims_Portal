@@ -19,7 +19,7 @@ from django.conf import settings
 import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Transaction,EDICLHP,Fund_Data,Fund_Status,Total_Charges
+from .models import Transaction,EDICLHP,Fund_Data,Fund_Status,Total_Charges,ProcessingLog
 from .utils import extract_837_data,parse_df
 import re
 from datetime import datetime
@@ -906,3 +906,51 @@ class FileCountTypeAPIView(APIView):
             "data": response_data
         }
     )
+
+
+class ProcessingLogAPIView(APIView):
+
+    def get(self, request):
+
+        filename = request.GET.get("filename")
+
+        if not filename:
+            return Response(
+                {
+                    "success": False,
+                    "error": "filename is required"
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        logs = ProcessingLog.objects.filter(
+            filename=filename
+        ).order_by("id")
+
+        if not logs.exists():
+            return Response(
+                {
+                    "success": False,
+                    "error": "No logs found"
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        data = [
+            {
+                "filename": log.filename,
+                "filetype": log.filetype,
+                "file_date": log.file_date,
+                "status": log.status,
+                "created_time": log.created_time.strftime("%H:%M:%S")
+            }
+            for log in logs
+        ]
+
+        return Response(
+            {
+                "success": True,
+                "count": len(data),
+                "data": data
+            }
+        )
