@@ -1180,3 +1180,17 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     
 
     cursor.close()
+    folder_path = "/home/ubuntu/claim_files/837_Files_today"
+    for filename in os.listdir(folder_path):
+            file_path = os.path.join(
+                folder_path,
+                filename
+            )
+            if os.path.isfile(file_path):
+                try:
+                    os.remove(file_path)
+                    print(f"Deleted: {file_path}")
+                except Exception as e:
+                    print(
+                        f"Failed to delete {file_path}: {e}"
+                    )
