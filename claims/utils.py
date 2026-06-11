@@ -1136,39 +1136,43 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
         conn.commit()
         df = df.loc[:, ~df.columns.duplicated()]
         columns = list(df.columns)
+        print(columns)
+        try:
+            quoted_columns = [f'"{col}"' for col in columns]
 
-        quoted_columns = [f'"{col}"' for col in columns]
+            insert_query = f"""
+            INSERT INTO ediclhp
+            ({','.join(quoted_columns)})
+            VALUES ({','.join(['%s'] * len(columns))})
+            """
 
-        insert_query = f"""
-        INSERT INTO ediclhp
-        ({','.join(quoted_columns)})
-        VALUES ({','.join(['%s'] * len(columns))})
-        """
+            batch_size = 1000
 
-        batch_size = 1000
+            for start in tqdm(
+                range(0, len(df), batch_size),
+                desc="Loading EDICLHP"
+            ):
 
-        for start in tqdm(
-            range(0, len(df), batch_size),
-            desc="Loading EDICLHP"
-        ):
+                batch_df = df.iloc[start:start + batch_size]
 
-            batch_df = df.iloc[start:start + batch_size]
+                records = [
+                    tuple(
+                        None if str(v).strip().lower() == 'nan' else v
+                        for v in row
+                    )
+                    for row in batch_df.values
+                ]
 
-            records = [
-                tuple(
-                    None if str(v).strip().lower() == 'nan' else v
-                    for v in row
+                execute_batch(
+                    cursor,
+                    insert_query,
+                    records
                 )
-                for row in batch_df.values
-            ]
 
-            execute_batch(
-                cursor,
-                insert_query,
-                records
-            )
-
-            conn.commit()
+                conn.commit()
+        except Exception as e:
+            print(f'EDICLHP INSERTION ERROR {e}')
+            
         cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "File Data Insertion to Table Completed"))
         conn.commit()
 
