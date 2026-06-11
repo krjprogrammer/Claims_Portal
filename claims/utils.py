@@ -630,7 +630,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     df['BHPSEQ'] = df['TESEQ']
     df['BHMEMN'] = df['TESSN']
     df.drop(columns=['TECLNT','TESEQ','TESSN'],inplace=True)
-    time.sleep(60)
+    time.sleep(8)
     cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "Member Dependent Verification Ended"))
     conn.commit()
     ins_mapping = {
@@ -1134,6 +1134,7 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
     if not exists:
         cursor.execute("INSERT INTO processing_log (filename, filetype, file_date, status, created_time) VALUES (%s, %s, %s, %s, CURRENT_TIME)", (filename, filetype, file_date, "File Data Insertion to Table Started"))
         conn.commit()
+        df = df.loc[:, ~df.columns.duplicated()]
         columns = list(df.columns)
 
         quoted_columns = [f'"{col}"' for col in columns]
