@@ -4,6 +4,9 @@ import re
 from datetime import datetime
 from tqdm import tqdm
 import time
+from django.core.mail import EmailMessage
+from django.conf import settings
+import threading
 import psycopg2
 from psycopg2.extras import execute_batch,execute_values
 
@@ -1199,3 +1202,40 @@ def process_df(df,filetype,im_df,file_date,filename=None,):
                     print(
                         f"Failed to delete {file_path}: {e}"
                     )
+
+
+
+class EmailThread(threading.Thread):
+    def __init__(self, subject, message, recipient_list, attachment_path=None):
+        self.subject = subject
+        self.message = message
+        self.recipient_list = recipient_list
+        self.attachment_path = attachment_path
+        threading.Thread.__init__(self)
+
+    def run(self):
+        try:
+            common_footer = "\n\n---\nThis is a system-generated email. Please do not reply to this message.\n"
+
+            email = EmailMessage(
+                subject=self.subject,
+                body=f"{self.message}{common_footer}",
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                to=self.recipient_list,
+            )
+
+            if self.attachment_path and os.path.exists(self.attachment_path):
+                email.attach_file(self.attachment_path)
+
+            send_count = email.send(fail_silently=False)
+            print(f"✅ Email sent to {self.recipient_list}")
+            return send_count, "mail sent successfully"
+        except Exception as e:
+            print(f"❌ Email failed: {e}")
+            return False, e
+
+def send_mail(subject, message, recipients, attachment_path=None):
+    if isinstance(recipients, str):
+        recipients = [recipients]
+    EmailThread(subject, message, recipients, attachment_path).start()
+    return True
