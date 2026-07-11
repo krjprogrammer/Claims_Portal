@@ -486,7 +486,7 @@ class PendingVerification(models.Model):
         choices=PriorityLevel.choices, 
         default=PriorityLevel.MEDIUM
     )
-    assigned_adjudicator = models.ForeignKey(AbstractUser, on_delete=models.SET_NULL, null=True, blank=True)
+    assigned_adjudicator = models.ForeignKey(PortalUser, on_delete=models.SET_NULL, null=True, blank=True)
     
     # Verifier inputs
     verifier_notes = models.TextField(blank=True, null=True, max_length=500)
