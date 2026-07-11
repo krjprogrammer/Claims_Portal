@@ -1,6 +1,12 @@
 from django.urls import path
 from .views import ProcessedFilesAPIView,ProcessedFilesCountAPIView,ClaimsCountAPIView,FileDataAPIView,FundCountAPIView,FundDashboardAPI,ActiveFundCountAPIView,ClaimsCountRangeAPIView,TotalChargesAPIView,TotalChargesRangeAPIView,ClaimDetailsAPIView,FundDashboardRangeAPI,FileCountTypeAPIView,ProcessingLogAPIView
 from .views import PortalUserView, UserLoginView, UserLogoutView, UserRegisterView,PortalRolesView, PortalPagesView,change_password, verify_email, send_otp, verify_otp, forgot_password, check_username_availability,TOTPSetupView, TOTPEnableView, TOTPDisableView, TOTPLoginVerifyView
+from .views import (
+    list_pending_verifications,
+    get_verification_details,
+    get_candidates_and_history,
+    execute_verification_action
+)
 urlpatterns = [
     path('get_file_count',ProcessedFilesCountAPIView.as_view()),
     path('get_claims_count',ClaimsCountAPIView.as_view()),
@@ -16,7 +22,6 @@ urlpatterns = [
     path("claim_details",ClaimDetailsAPIView.as_view()),
     path('get_filetype_count',FileCountTypeAPIView.as_view()),
     path('get_logs',ProcessingLogAPIView.as_view()),
-    # Users
     path('users/', PortalUserView.as_view(), name='portaluser-list'),
     path('users/<int:pk>/', PortalUserView.as_view(), name='portaluser-detail'),
     path('get-by-username/<str:pk>/', PortalUserView.as_view(), name='portaluser-detail-by-username'),
@@ -40,6 +45,13 @@ urlpatterns = [
     # Pages (superadmin only)
     path('pages/', PortalPagesView.as_view(), name='pages-list'),
     path('pages/<int:pk>/', PortalPagesView.as_view(), name='pages-detail'),
+    path('pending-verifications/', list_pending_verifications, name='list_pending_verifications'),
+    # 2. GET: Fetch Detail panel & Comparisons (Supports ?candidate_id= query param to refresh comparisons grid)
+    path('pending-verifications/<int:pk>/', get_verification_details, name='get_verification_details'),
+    # 3. GET: Fetch Candidates list and Timeline logs in a single combined call
+    path('pending-verifications/<int:pk>/candidates-history/', get_candidates_and_history, name='get_candidates_and_history'),
+    # 4. POST: Action Executor (Processes: save_notes, approve, reject, mark_unverified, re_run)
+    path('pending-verifications/<int:pk>/action/', execute_verification_action, name='execute_verification_action'),
 ]
 
 

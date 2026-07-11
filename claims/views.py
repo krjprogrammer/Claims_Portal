@@ -1,7 +1,10 @@
 from django.shortcuts import render
 from django.shortcuts import render
 from django.db.models import Count, Q
+from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Sum,Case, When, IntegerField, FloatField
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django.http import JsonResponse
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -24,7 +27,9 @@ from django.conf import settings
 import pandas as pd
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from .models import Transaction,EDICLHP,Fund_Data,Fund_Status,Total_Charges,ProcessingLog
+from .models import Transaction,EDICLHP,Fund_Data,Fund_Status,Total_Charges,ProcessingLog, PendingVerification, Member, VerificationHistory, VerificationStatus
+from .models import PendingVerification, Member, VerificationHistory, VerificationStatus
+from .helpers import calculate_match_candidates, build_comparison_matrix
 from .utils import extract_837_data,parse_df
 import re
 from datetime import datetime
@@ -1388,3 +1393,269 @@ class TOTPLoginVerifyView(APIView):
         if not pyotp.TOTP(user.totp_secret).verify(str(totp_code), valid_window=1):
             return Response({"message": "Invalid TOTP code."}, status=status.HTTP_401_UNAUTHORIZED)
         return _issue_jwt(request, user)
+    
+
+
+def format_datetime(dt):
+    return dt.strftime('%Y-%m-%dT%H:%M:%SZ') if dt else None
+
+def format_date(d):
+    return d.strftime('%Y-%m-%d') if d else None
+
+
+def list_pending_verifications(request):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+        
+    queryset = PendingVerification.objects.all().select_related('claim')
+    
+    status_filter = request.GET.get('status')
+    if status_filter:
+        queryset = queryset.filter(status=status_filter)
+        
+    priority_filter = request.GET.get('priority')
+    if priority_filter:
+        queryset = queryset.filter(priority=priority_filter)
+        
+    claim_id = request.GET.get('claim__claim_id') or request.GET.get('claim_id')
+    if claim_id:
+        queryset = queryset.filter(claim__claim_id__icontains=claim_id)
+        
+    member_id = request.GET.get('claim__member_id') or request.GET.get('member_id')
+    if member_id:
+        queryset = queryset.filter(claim__member_id__icontains=member_id)
+        
+    provider = request.GET.get('claim__provider') or request.GET.get('provider')
+    if provider:
+        queryset = queryset.filter(claim__provider__icontains=provider)
+        
+    dos_from = request.GET.get('claim__dos__gte') or request.GET.get('dos_from')
+    if dos_from:
+        queryset = queryset.filter(claim__dos__gte=dos_from)
+        
+    dos_to = request.GET.get('claim__dos__lte') or request.GET.get('dos_to')
+    if dos_to:
+        queryset = queryset.filter(claim__dos__lte=dos_to)
+        
+    data = []
+    for pv in queryset:
+        data.append({
+            'id': pv.id,
+            'claim_id': pv.claim.claim_id,
+            'member_id': pv.claim.member_id,
+            'patient_name': pv.claim.patient_name,
+            'dos': format_date(pv.claim.dos),
+            'provider': pv.claim.provider,
+            'failure_reason': pv.failure_reason,
+            'priority': pv.priority,
+            'status': pv.status
+        })
+        
+    return JsonResponse(data, safe=False, status=200)
+
+
+def get_verification_details(request, pk):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+        
+    pv = get_object_or_404(PendingVerification.objects.select_related('claim', 'matched_member'), id=pk)
+    claim = pv.claim
+    candidate_id = request.GET.get('candidate_id')
+    selected_member = pv.matched_member
+    if candidate_id:
+        try:
+            selected_member = Member.objects.get(id=candidate_id)
+        except Member.DoesNotExist:
+            pass
+
+    if not selected_member:
+        candidates = calculate_match_candidates(claim)
+        if candidates:
+            best_candidate_id = candidates[0]['id']
+            try:
+                selected_member = Member.objects.get(id=best_candidate_id)
+            except Member.DoesNotExist:
+                pass
+                
+    comparison_matrix = build_comparison_matrix(claim, selected_member)
+
+    mismatch_type = pv.failure_reason.strip()
+    if "Name" in mismatch_type:
+        claim_val = claim.patient_name
+        member_val = selected_member.full_name if selected_member else "N/A"
+        failure_warning_msg = f"The patient Name in claim does not match with our records. Claim Name: {claim_val} | Best Match Name: {member_val}"
+    elif "DOB" in mismatch_type or "Date of Birth" in mismatch_type:
+        claim_val = claim.dob.strftime('%m/%d/%Y') if claim.dob else "N/A"
+        member_val = selected_member.dob.strftime('%m/%d/%Y') if selected_member and selected_member.dob else "N/A"
+        failure_warning_msg = f"The patient DOB in claim does not match with our records. Claim DOB: {claim_val} | Best Match DOB: {member_val}"
+    elif "SSN" in mismatch_type:
+        claim_val = f"XXX-XX-{claim.ssn[-4:]}" if claim.ssn and len(claim.ssn) >= 4 else "N/A"
+        member_val = f"XXX-XX-{selected_member.ssn[-4:]}" if selected_member and selected_member.ssn and len(selected_member.ssn) >= 4 else "N/A"
+        failure_warning_msg = f"The patient SSN in claim does not match with our records. Claim SSN: {claim_val} | Best Match SSN: {member_val}"
+    else:
+        claim_val = getattr(claim, pv.failure_reason.lower().replace(' mismatch', '').replace(' invalid', ''), "N/A")
+        member_val = getattr(selected_member, pv.failure_reason.lower().replace(' mismatch', '').replace(' invalid', ''), "N/A") if selected_member else "N/A"
+        failure_warning_msg = f"The patient {pv.failure_reason.replace('Mismatch', '').replace('Invalid', '').strip()} in claim does not match with our records. Claim Value: {claim_val} | Best Match Value: {member_val}"
+
+
+    response_data = {
+        'id': pv.id,
+        'status': pv.status,
+        'failure_reason': pv.failure_reason,
+        'priority': pv.priority,
+        'verifier_notes': pv.verifier_notes or "",
+        'manual_override_reason': pv.manual_override_reason or "",
+        'resolved_at': format_datetime(pv.resolved_at),
+        'matched_member': {
+            'id': pv.matched_member.id,
+            'full_name': pv.matched_member.full_name,
+            'member_id': pv.matched_member.member_id
+        } if pv.matched_member else None,
+        'claim': {
+            'claim_id': claim.claim_id,
+            'bhdocn': claim.bhdocn,
+            'dos': format_date(claim.dos),
+            'received_date': format_datetime(claim.received_date),
+            'subscriber_name': claim.subscriber_name,
+            'member_id': claim.member_id,
+            'group_client': claim.group_client,
+            'provider': claim.provider,
+            'patient_name': claim.patient_name,
+            'dob': format_date(claim.dob),
+            'gender': claim.gender,
+            'relationship': claim.relationship,
+            'ssn': f"XXX-XX-{claim.ssn[-4:]}" if claim.ssn and len(claim.ssn) >= 4 else "XXX-XX-XXXX",
+            'total_charge': str(claim.total_charge)
+        },
+        'failure_warning': failure_warning_msg,
+        'comparison': comparison_matrix
+    }
+    
+    return JsonResponse(response_data, status=200)
+
+
+
+def get_candidates_and_history(request, pk):
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+        
+    pv = get_object_or_404(PendingVerification.objects.select_related('claim'), id=pk)
+
+    candidates_list = calculate_match_candidates(pv.claim)
+
+    history_logs = pv.history.all()
+    history_list = []
+    for h in history_logs:
+        history_list.append({
+            'id': h.id,
+            'event_title': h.event_title,
+            'event_description': h.event_description,
+            'created_at': format_datetime(h.created_at),
+            'created_by': h.created_by
+        })
+
+    response_data = {
+        'candidates': candidates_list,
+        'history': history_list
+    }
+    
+    return JsonResponse(response_data, status=200)
+
+
+
+@csrf_exempt
+def execute_verification_action(request, pk):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Method not allowed'}, status=405)
+        
+    pv = get_object_or_404(PendingVerification, id=pk)
+    
+    try:
+        payload = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON body payload'}, status=400)
+        
+    action_type = payload.get('action_type')
+    if not action_type:
+        return JsonResponse({'error': 'action_type parameter is required'}, status=400)
+        
+    user_name = request.user.username if request.user.is_authenticated else "System"
+    if action_type == 'save_notes':
+        notes = payload.get('verifier_notes')
+        override = payload.get('manual_override_reason')
+        pv.verifier_notes = notes
+        pv.manual_override_reason = override
+        pv.save()
+        
+        VerificationHistory.objects.create(
+            verification=pv,
+            event_title="Notes Saved",
+            event_description=f"Verifier notes and/or override reasons updated by {user_name}.",
+            created_by=user_name
+        )
+        return JsonResponse({'status': 'Notes saved successfully'}, status=200)
+
+    elif action_type == 'approve':
+        candidate_id = payload.get('candidate_id')
+        override_reason = payload.get('override_reason', '')
+        
+        if not candidate_id:
+            return JsonResponse({'error': 'candidate_id parameter is required for approval'}, status=400)
+            
+        try:
+            member = Member.objects.get(id=candidate_id)
+        except Member.DoesNotExist:
+            return JsonResponse({'error': f'Candidate Member with ID {candidate_id} not found'}, status=404)
+            
+        pv.matched_member = member
+        pv.status = VerificationStatus.APPROVED
+        pv.resolved_at = timezone.now()
+        if override_reason:
+            pv.manual_override_reason = override_reason
+        pv.save()
+        
+        VerificationHistory.objects.create(
+            verification=pv,
+            event_title="Match Approved",
+            event_description=f"Claim manually matched to member: {member.full_name} ({member.member_id}) by {user_name}.",
+            created_by=user_name
+        )
+        return JsonResponse({'status': 'Claim successfully matched and approved'}, status=200)
+
+    elif action_type == 'reject':
+        reason = payload.get('reason', 'Claim rejected during manual review.')
+        pv.status = VerificationStatus.REJECTED
+        pv.resolved_at = timezone.now()
+        pv.save()
+        
+        VerificationHistory.objects.create(
+            verification=pv,
+            event_title="Claim Rejected",
+            event_description=f"Claim manual verification rejected. Reason: {reason}",
+            created_by=user_name
+        )
+        return JsonResponse({'status': 'Claim successfully rejected'}, status=200)
+
+    elif action_type == 'mark_unverified':
+        pv.status = VerificationStatus.UNVERIFIED
+        pv.save()
+        
+        VerificationHistory.objects.create(
+            verification=pv,
+            event_title="Marked Unverified",
+            event_description=f"Claim status updated to Unverified by {user_name}.",
+            created_by=user_name
+        )
+        return JsonResponse({'status': 'Claim marked unverified'}, status=200)
+
+    elif action_type == 're_run':
+        VerificationHistory.objects.create(
+            verification=pv,
+            event_title="Auto Match Re-run",
+            event_description=f"Initiated automatic match rules re-run task by {user_name}.",
+            created_by=user_name
+        )
+        return JsonResponse({'status': 'Automated matching engine re-run scheduled successfully'}, status=200)
+        
+    else:
+        return JsonResponse({'error': f'Unsupported action_type: {action_type}'}, status=400)

@@ -433,3 +433,86 @@ class EmailOTP(models.Model):
 
     def __str__(self):
         return f"{self.user.email} - {self.otp}"
+
+
+
+class VerificationStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pending Verification'
+    APPROVED = 'APPROVED', 'Approved Match'
+    REJECTED = 'REJECTED', 'Rejected Claim'
+    UNVERIFIED = 'UNVERIFIED', 'Unverified'
+
+class PriorityLevel(models.TextChoices):
+    HIGH = 'HIGH', 'High'
+    MEDIUM = 'MEDIUM', 'Medium'
+    LOW = 'LOW', 'Low'
+
+
+class Member(models.Model):
+    """
+    Database registry of registered patients/members (from system DB).
+    Used to generate 'Possible Match Candidates' and do comparisons.
+    """
+    ssn = models.CharField(max_length=15, db_index=True)
+    sequence_no = models.CharField(max_length=5, default="01")
+    full_name = models.CharField(max_length=255)
+    dob = models.DateField()
+    relationship = models.CharField(max_length=50) # e.g. Subscriber, Dependent
+    eligibility_status = models.CharField(max_length=20, default="Active") # Active, Inactive
+    client_code = models.CharField(max_length=50) # e.g. CLIENT001
+    gender = models.CharField(max_length=10) # Male, Female
+    member_id = models.CharField(max_length=50, unique=True)
+    
+    def __str__(self):
+        return f"{self.full_name} ({self.member_id})"
+
+
+
+
+class PendingVerification(models.Model):
+    """
+    Manual Verification Queue.
+    Links the claim data to verifier inputs, matched outcomes, and status.
+    """
+    claim = models.CharField(max_length=30)
+    status = models.CharField(
+        max_length=20, 
+        choices=VerificationStatus.choices, 
+        default=VerificationStatus.PENDING
+    )
+    failure_reason = models.CharField(max_length=255) 
+    priority = models.CharField(
+        max_length=10, 
+        choices=PriorityLevel.choices, 
+        default=PriorityLevel.MEDIUM
+    )
+    assigned_adjudicator = models.ForeignKey(AbstractUser, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # Verifier inputs
+    verifier_notes = models.TextField(blank=True, null=True, max_length=500)
+    manual_override_reason = models.TextField(blank=True, null=True)
+    
+    # Matching Outcomes
+    matched_member = models.ForeignKey(Member, on_delete=models.SET_NULL, null=True, blank=True)
+    resolved_at = models.DateTimeField(null=True, blank=True)
+    
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Verification for Claim {self.claim.claim_id} - {self.status}"
+
+
+class VerificationHistory(models.Model):
+    """
+    Timeline events log for the claim manual verification steps.
+    """
+    verification = models.ForeignKey(PendingVerification, on_delete=models.CASCADE, related_name='history')
+    event_title = models.CharField(max_length=100)
+    event_description = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.CharField(max_length=100, default="System")
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name_plural = "Verification Histories"
