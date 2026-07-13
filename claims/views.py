@@ -1407,7 +1407,7 @@ def list_pending_verifications(request):
     if request.method != 'GET':
         return JsonResponse({'error': 'Method not allowed'}, status=405)
         
-    queryset = PendingVerification.objects.all().select_related('claim')
+    queryset = PendingVerification.objects.all()
     
     status_filter = request.GET.get('status')
     if status_filter:
